@@ -1,0 +1,32 @@
+search_videos(query, count):
+    query: str|None
+    count: int = 1
+    runs a query on the video source, returns at most count entries.
+    all entries must have a .length property
+
+get_video_data(vid, thumbnail_size):
+    vid: a video as returned by search_videos
+    thumbnail_size: the width of the image to display as the thumbnail
+
+    returns tuple(vid, header_text:str, thumbnail:Gtk.Image, subtext:str|None)
+
+stream_connector(default):
+    default: class
+    returns the default provided, unless this module needs a separate stream connector than the URI based default
+    the class returned by this function should follow the same contract as VideoPlayback
+    __init__ of the returned class must be able to be called multiple times
+
+playback_start(vid, playback, config):
+    vid: a video as returned by search_videos
+    playback: an instance of the class returned by stream_connector
+    config: the global config
+
+    edits the playback instance so calling play() on it will play the video
+
+save_video(vid, path):
+    saves vid to the path
+    may be left unimplemented
+
+save_audio(vid, path):
+    saves only the audio portion of vid to the path
+    may be left unimplemented
