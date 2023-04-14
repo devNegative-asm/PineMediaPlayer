@@ -100,10 +100,10 @@ def size_daemon():
     while 1:
         if win:
             for running_video, video_player, position, internal_player_box in running_videos:
-                if internal_player_box:
-                    internal_player_box.set_size_request(*size_setting())
-                if video_player:
-                    video_player.set_size_request(*size_setting())
+                if internal_player_box: pass
+                    #internal_player_box.set_size_request(*size_setting())
+                if video_player: pass
+                    #video_player.set_size_request(*size_setting())
         if results_menu:
             results_menu.set_size_request(window_width, -1)
         time.sleep(1)
@@ -120,9 +120,6 @@ def toggle_player_controls():
         win.unfullscreen()
         win.set_default_size(window_width,window_height)
         win.move(0,0)
-    for running_video, video_player, position, internal_player_box in running_videos:
-        #scroll the window so the player is in the top
-        video_player.set_size_request(*size_setting())
 
 def size_setting():
     global window_height, window_width
@@ -155,7 +152,6 @@ def reload_videos():
         old_player = video_player
         if old_player: internal_player_box.remove(old_player)
         if new_widget and CONFIG['prevent_popout']:
-            new_widget.set_size_request(*size_setting())
             internal_player_box.add(new_widget)
             #reconnect maintains callbacks, so no need to copy those
         replacement_videos.append((running_video, new_widget, position, internal_player_box))
@@ -319,10 +315,6 @@ def run_search(_, data, existing=None):
                     internal_player_box.connect('button-press-event', lambda box, event: unmoved((event.x,event.y)))
                     internal_player_box.connect('button-release-event', lambda box, event:
                         toggle_player_controls() if unmoved((event.x,event.y)) else None)
-                    video_player.set_size_request(*size_setting())
-                    video_player.set_margin_top(0)
-                    #video_player.set_valign(Gtk.Align.START)
-                    #internal_player_box.set_valign(Gtk.Align.START)
 
                     video_playback.add_stop_callback(lambda entries, internal_player_box :(
                         internal_player_box.remove(internal_player_box.get_child()),
