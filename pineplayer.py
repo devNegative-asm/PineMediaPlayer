@@ -124,7 +124,7 @@ def toggle_player_controls():
 
 def size_setting():
     global window_height, window_width
-    window_width, window_height = win.get_size()
+    window_width, window_height = (720, 360)
     if player_controls_hidden:
         desired_width = window_width
         desired_height = window_height
@@ -132,13 +132,10 @@ def size_setting():
         desired_width = window_width
         desired_height = window_height - settings_bar.get_allocated_height()
         desired_height = desired_height * 47//62
-    print("window size: ", (window_width, window_height))
-    print("desired size: ", (desired_width, desired_height))
     if desired_width > desired_height * 16 // 9:
         desired_width = desired_height * 16 // 9
     else:
         desired_height = desired_width * 9 // 16
-    print("final size: ", (desired_width, desired_height))
 
     return (desired_width, desired_height)
 
@@ -213,7 +210,7 @@ def run_search(_, data, existing=None):
     global results_menu, main_grid, view_window, scroller_handler, scroller
     results_count, entry, win= data
     
-    window_width, window_height = win.get_size()
+    window_width, window_height = (720, 360)
     results_count = results_count[0]
     vid_count = 12
     text = entry.get_text()
