@@ -100,6 +100,8 @@ def size_daemon():
     while 1:
         if win:
             for running_video, video_player, position, internal_player_box in running_videos:
+                if internal_player_box:
+                    internal_player_box.set_size_request(*size_setting())
                 if video_player:
                     video_player.set_size_request(*size_setting())
         if results_menu:
@@ -229,6 +231,8 @@ def run_search(_, data, existing=None):
     results_menu.set_column_spacing(10)
     results_menu.set_row_spacing(10)
     internal_player_box = Gtk.EventBox()
+    internal_player_box.set_margin_top(0)
+    internal_player_box.set_margin_bottom(0)
     dummy_box = Gtk.Box()
     results_menu.add(dummy_box)
     view_window.add(results_menu)
@@ -304,26 +308,31 @@ def run_search(_, data, existing=None):
             scroller.set_range(0, video_length)
             scroller_handler = scroller.connect('change-value', lambda scroller, scrolltype, value, playback: (playback.seek_seconds(value), playback.mark_dirty(), scroller.set_value(value)), video_playback)
             scroller.show()
-            search_button.hide()
-            search_entry.hide()
+            main_grid.remove_row(1)
             
             if video_player:
                 if CONFIG['prevent_popout']:
                     
                     main_grid.remove(view_window)
-                    main_grid.attach(internal_player_box, 0, 2, 2, 10)
+                    main_grid.attach(internal_player_box, 0, 1, 2, 10)
                     internal_player_box.add(video_player)
                     internal_player_box.connect('button-press-event', lambda box, event: unmoved((event.x,event.y)))
                     internal_player_box.connect('button-release-event', lambda box, event:
                         toggle_player_controls() if unmoved((event.x,event.y)) else None)
                     video_player.set_size_request(*size_setting())
+                    video_player.set_margin_top(0)
+                    #video_player.set_valign(Gtk.Align.START)
+                    #internal_player_box.set_valign(Gtk.Align.START)
 
-                    video_playback.add_stop_callback(lambda entries, internal_player_box, player_widget :(
-                        internal_player_box.remove(player_widget),
+                    video_playback.add_stop_callback(lambda entries, internal_player_box :(
+                        internal_player_box.remove(internal_player_box.get_child()),
                         internal_player_box.hide(),
                         main_grid.remove(internal_player_box),
-                        main_grid.attach(view_window, 0, 2, 2, 10)
-                    ), (row_elements, internal_player_box, video_player))
+                        main_grid.attach(search_entry, 0, 1, 1, 1),
+                        main_grid.attach(search_button, 1, 1, 1, 1),
+                        main_grid.attach(view_window, 0, 2, 2, 10),
+                        main_grid.show_all()
+                    ), (row_elements, internal_player_box))
 
                     internal_player_box.show()
 
