@@ -116,19 +116,11 @@ def toggle_player_controls():
     else:
         settings_bar.show()
         win.unfullscreen()
+        win.set_default_size(window_width,window_height)
+        win.move(0,0)
     for running_video, video_player, position, internal_player_box in running_videos:
         #scroll the window so the player is in the top
         video_player.set_size_request(*size_setting())
-        #x,y = video_player.translate_coordinates(main_grid, 0, 0)
-        def recenter_screen(video_player):
-            time.sleep(1.2)
-            x,y = video_player.translate_coordinates(view_window, 0, 0)
-            vadj = view_window.get_vadjustment()
-            vadj.set_value(0)
-
-            hadj = view_window.get_hadjustment()
-            hadj.set_value((hadj.get_lower() + hadj.get_upper() - hadj.get_page_size())//2)
-        async_run(recenter_screen, video_player)
 
 def size_setting():
     global window_height, window_width
@@ -242,8 +234,6 @@ def run_search(_, data, existing=None):
     internal_player_box = Gtk.EventBox()
     dummy_box = Gtk.Box()
     results_menu.add(dummy_box)
-    results_menu.attach(internal_player_box, 0, 0, new_entries_len(), 1)
-    results_menu.remove(dummy_box)
     view_window.add(results_menu)
     main_grid.attach(view_window, 0, 2, 2, 16)
 
@@ -321,8 +311,10 @@ def run_search(_, data, existing=None):
             search_entry.hide()
             
             if video_player:
-
                 if CONFIG['prevent_popout']:
+                    
+                    main_grid.remove(view_window)
+                    main_grid.attach(internal_player_box, 0, 2, 2, 10)
                     internal_player_box.add(video_player)
                     internal_player_box.connect('button-press-event', lambda box, event: unmoved((event.x,event.y)))
                     internal_player_box.connect('button-release-event', lambda box, event:
@@ -331,8 +323,12 @@ def run_search(_, data, existing=None):
 
                     video_playback.add_stop_callback(lambda entries, internal_player_box, player_widget :(
                         internal_player_box.remove(player_widget),
-                        internal_player_box.hide()
+                        internal_player_box.hide(),
+                        main_grid.remove(internal_player_box),
+                        main_grid.attach(view_window, 0, 2, 2, 10)
                     ), (row_elements, internal_player_box, video_player))
+
+                    internal_player_box.show()
 
             #i forget why this is necessary, but it is
             video_playback.add_stop_callback(StreamConnector.__init__, (video_playback, None, CONFIG['audio_only_mode'], video_playback.dirty_timeout))
@@ -357,6 +353,8 @@ def run_search(_, data, existing=None):
             entry.set_hexpand(False)
             entry.set_hexpand_set(True)
             results_menu.attach(entry, index, ypos, 1, 1)
+            if i==results_count and index==0:
+                results_menu.remove(dummy_box)
     
     main_grid.show_all()
     if scroller_handler==None:
@@ -400,8 +398,8 @@ def on_activate(app):
     results_count = [0]
 
     horiz = True
-    window_width = 508
-    window_height = 1016
+    window_width = 360
+    window_height = 720
     if horiz:
         window_height, window_width = (window_width, window_height)
     win.set_default_size(window_width,window_height)
