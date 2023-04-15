@@ -91,7 +91,7 @@ class VideoPlayback:
         self.pipeline = self.make_pipeline(uri, audio_only)
     
     def get_display(self):
-        
+
         if self.audio_only:
             self.pipeline.set_state(Gst.State.READY)
             return None

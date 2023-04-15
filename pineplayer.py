@@ -1,3 +1,4 @@
+#!/bin/python3
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gst", "1.0")
@@ -229,7 +230,9 @@ def pause_and_close(window_container, button_event, running_video):
     if UI.unmoved(button_event):
         UI.paused = True
         running_video.pause()
+        window_container.set_keep_above(False)
         window_container.iconify()
+        UI.win.present()
 
 def skip(delta):
     for running_video, video_player, position, internal_player_box in UI.running_videos:
@@ -361,7 +364,7 @@ def run_search(_, data, existing=None):
                     
 
             #i forget why this is necessary, but it is
-            video_playback.add_stop_callback(StreamConnector.__init__, (video_playback, None, CONFIG['audio_only_mode'], video_playback.dirty_timeout, CONFIG['prevent_popout']))
+            video_playback.add_stop_callback(StreamConnector.__init__, (video_playback, None, CONFIG['audio_only_mode'], video_playback.dirty_timeout,not CONFIG['prevent_popout']))
 
             video_playback.add_concurrent_callback(
                 lambda scroller, video_playback: scroller.set_value(video_playback.get_current_time()) if video_playback.get_current_time() else None,
