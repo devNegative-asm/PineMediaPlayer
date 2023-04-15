@@ -135,6 +135,8 @@ def toggle_player_controls():
         UI.win.fullscreen()
     else:
         UI.settings_bar.show()
+        for running_video, video_player, position, internal_player_box in UI.running_videos:
+            internal_player_box.set_margin_bottom(250)
         UI.win.unfullscreen()
         UI.win.set_default_size(UI.window_width,UI.window_height)
         UI.win.move(0,0)
@@ -253,7 +255,7 @@ def run_search(_, data, existing=None):
     UI.results_menu.set_row_spacing(10)
     internal_player_box = Gtk.EventBox()
     internal_player_box.set_margin_top(0)
-    internal_player_box.set_margin_bottom(0)
+    internal_player_box.set_margin_bottom(250)
     dummy_box = Gtk.Box()
     UI.results_menu.add(dummy_box)
     UI.view_window.add(UI.results_menu)
