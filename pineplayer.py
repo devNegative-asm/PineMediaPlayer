@@ -336,10 +336,10 @@ def run_search(_, data, existing=None):
             UI.scroller.set_range(0, video_length)
             UI.scroller_handler = UI.scroller.connect('change-value', lambda scroller, scrolltype, value, playback: (playback.seek_seconds(value), playback.mark_dirty(), scroller.set_value(value)), video_playback)
             UI.scroller.show()
-            UI.main_grid.remove_row(1)
 
             if video_player:
                 if CONFIG['prevent_popout']:
+                    UI.main_grid.remove_row(1)
                     UI.main_grid.remove(UI.view_window)
                     UI.main_grid.attach(internal_player_box, 0, 1, 2, 10)
                     internal_player_box.add(video_player)
