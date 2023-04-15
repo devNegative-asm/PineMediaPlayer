@@ -133,6 +133,8 @@ def toggle_player_controls():
     if UI.player_controls_hidden:
         UI.settings_bar.hide()
         UI.win.fullscreen()
+        for running_video, video_player, position, internal_player_box in UI.running_videos:
+            internal_player_box.set_margin_bottom(0)
     else:
         UI.settings_bar.show()
         for running_video, video_player, position, internal_player_box in UI.running_videos:
@@ -179,11 +181,12 @@ def reload_videos():
     UI.running_videos = replacement_videos
 
 #config
-if os.path.exists('config.json'):
-    with open('config.json', 'r') as f:
+config_path = os.path.join(os.path.dirname(__file__), "config.json")
+if os.path.exists(config_path):
+    with open(config_path, 'r') as f:
         CONFIG = json.load(f)
 else:
-    with open('config.json', 'w') as f:
+    with open(config_path, 'w') as f:
         CONFIG = {
             "audio_only_mode": False,
             "prevent_popout": True
@@ -193,7 +196,7 @@ else:
 def toggle_config(source, request):
     if type(request) == type(''):
         CONFIG[request] = not CONFIG[request]
-        with open('config.json', 'w') as f:
+        with open(config_path, 'w') as f:
             json.dump(CONFIG, f)
     else:
         data, callback = request
