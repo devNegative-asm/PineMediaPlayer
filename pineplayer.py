@@ -24,8 +24,6 @@ Util = __import__('Util', globals(), locals(), [], 0)
 parallel, async_run, time_format =(
     Util.parallel, Util.async_run, Util.time_format)
 
-window_width = None
-window_height = None
 PADDING = 6
 
 CURRENT_MODULE = None
@@ -40,11 +38,6 @@ save_video = _unimplemented
 save_audio = _unimplemented
 provide_saving = _unimplemented
 StreamConnector = VideoPlayback
-
-#simple helper to distinguish drags (used on mobile for scrolling) from clicks
-def unmoved(xy):
-    global last_mouse_down_location
-    return last_mouse_down_location==(last_mouse_down_location:=xy)
 
 def set_module(mod):
     global CURRENT_MODULE, CURRENT_MODULE_NAME, get_video_data, search_videos, StreamConnector, playback_start, provide_saving, save_audio, save_video
@@ -80,56 +73,80 @@ def CSS(css):
     cssProvider.load_from_data(css.encode('utf-8'))
     return lambda *widgets: [widget.get_style_context().add_provider(cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION) for widget in widgets]
 
-running_videos = []
+
 
 #global UI items
-view_window = None
-main_grid = None
-results_menu = None
-scroller = None
-scroller_handler = None
-full_time = 0
-search_entry = None
-search_button = None
-player_controls_hidden = False
-settings_bar = None
-win = None
-last_mouse_down_location = (-1.0, -1.0)
+class MainUI:
+    def __init__(self):
+        self.view_window = None
+        self.main_grid = None
+        self.results_menu = None
+        self.scroller = None
+        self.scroller_handler = None
+        self.full_time = 0
+        self.search_entry = None
+        self.search_button = None
+        self.player_controls_hidden = False
+        self.settings_bar = None
+        self.win = None
+        self.last_mouse_down_location = (-1.0, -1.0)
+        self.running_videos = []
+        self.window_width = 720
+        self.window_height = 360
+        self.paused=False
+
+    #simple helper to distinguish drags (used on mobile for scrolling) from clicks
+    def unmoved(self, event):
+        xy = (event.x, event.y)
+        result = self.last_mouse_down_location==(xy)
+        self.last_mouse_down_location = xy
+        return result
+
+    def init_popout_window(self, video_player, video_playback):
+        popout_window = video_player.get_parent()
+        popout_window.set_decorated(False)
+        popout_window.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK)
+        popout_window.connect('button-press-event', lambda win, event: UI.unmoved(event))
+        popout_window.connect('button-release-event', pause_and_close, video_playback)
+        popout_window.maximize()
+        popout_window.fullscreen()
+        popout_window.set_keep_above(True)
+        popout_window.present()
+
+UI = MainUI()
 
 def size_daemon():
     while 1:
-        if win:
-            for running_video, video_player, position, internal_player_box in running_videos:
+        if UI.win:
+            for running_video, video_player, position, internal_player_box in UI.running_videos:
                 if internal_player_box: pass
                     #internal_player_box.set_size_request(*size_setting())
                 if video_player: pass
                     #video_player.set_size_request(*size_setting())
-        if results_menu:
-            results_menu.set_size_request(window_width, -1)
+        if UI.results_menu:
+            UI.results_menu.set_size_request(UI.window_width, -1)
         time.sleep(1)
 async_run(size_daemon)
 
 def toggle_player_controls():
-    global player_controls_hidden
-    player_controls_hidden = not player_controls_hidden
-    if player_controls_hidden:
-        settings_bar.hide()
-        win.fullscreen()
+    UI.player_controls_hidden = not UI.player_controls_hidden
+    if UI.player_controls_hidden:
+        UI.settings_bar.hide()
+        UI.win.fullscreen()
     else:
-        settings_bar.show()
-        win.unfullscreen()
-        win.set_default_size(window_width,window_height)
-        win.move(0,0)
+        UI.settings_bar.show()
+        UI.win.unfullscreen()
+        UI.win.set_default_size(UI.window_width,UI.window_height)
+        UI.win.move(0,0)
 
 def size_setting():
-    global window_height, window_width
-    window_width, window_height = (720, 360)
-    if player_controls_hidden:
-        desired_width = window_width
-        desired_height = window_height
+    UI.window_width, UI.window_height = (720, 360)
+    if UI.player_controls_hidden:
+        desired_width = UI.window_width
+        desired_height = UI.window_height
     else:
-        desired_width = window_width
-        desired_height = window_height - settings_bar.get_allocated_height()
+        desired_width = UI.window_width
+        desired_height = UI.window_height - UI.settings_bar.get_allocated_height()
         desired_height = desired_height * 47//62
     if desired_width > desired_height * 16 // 9:
         desired_width = desired_height * 16 // 9
@@ -145,17 +162,19 @@ def new_entries_len():
         return 1
 
 def reload_videos():
-    global running_videos
     replacement_videos = []
-    for running_video, video_player, position, internal_player_box in running_videos:
+    for running_video, video_player, position, internal_player_box in UI.running_videos:
         new_widget = running_video.reconnect()
         old_player = video_player
-        if old_player: internal_player_box.remove(old_player)
-        if new_widget and CONFIG['prevent_popout']:
-            internal_player_box.add(new_widget)
+        if old_player and internal_player_box.get_child() == old_player: internal_player_box.remove(old_player)
+        if new_widget:
+            if CONFIG['prevent_popout']:
+                internal_player_box.add(new_widget)
+            else:
+                UI.init_popout_window(new_widget, running_video)
             #reconnect maintains callbacks, so no need to copy those
         replacement_videos.append((running_video, new_widget, position, internal_player_box))
-    running_videos = replacement_videos
+    UI.running_videos = replacement_videos
 
 #config
 if os.path.exists('config.json'):
@@ -180,35 +199,41 @@ def toggle_config(source, request):
         callback(data)
 
 def stop_all_videos():
-    global running_videos, scroller_handler
-    for running_video, video_player, position, internal_player_box in running_videos:
+    for running_video, video_player, position, internal_player_box in UI.running_videos:
         running_video.stop()
-    running_videos = []
-    if scroller_handler!=None:
-        scroller.disconnect(scroller_handler)
-    scroller.hide()
-    search_button.show()
-    search_entry.show()
-    scroller_handler = None
+    UI.running_videos = []
+    if UI.scroller_handler!=None:
+        UI.scroller.disconnect(UI.scroller_handler)
+    UI.scroller.hide()
+    UI.search_button.show()
+    UI.search_entry.show()
+    UI.scroller_handler = None
 
-paused = False
 def pause_or_play():
-    global paused
-    op = (VideoPlayback.pause, VideoPlayback.play)[int(paused)]
-    for running_video, video_player, position, internal_player_box in running_videos:
+    op = (VideoPlayback.pause, VideoPlayback.play)[int(UI.paused)]
+    UI.paused = not UI.paused
+    for running_video, video_player, position, internal_player_box in UI.running_videos:
         op(running_video)
-    paused = not paused
+        parent_window = video_player.get_parent()
+        if parent_window and (not UI.paused) and parent_window != internal_player_box:
+            parent_window.deiconify()
+            parent_window.maximize()
+            parent_window.present()
+
+def pause_and_close(window_container, button_event, running_video):
+    if UI.unmoved(button_event):
+        UI.paused = True
+        running_video.pause()
+        window_container.iconify()
 
 def skip(delta):
-    for running_video, video_player, position, internal_player_box in running_videos:
+    for running_video, video_player, position, internal_player_box in UI.running_videos:
         running_video.relative_seek_seconds(delta)
 
 def run_search(_, data, existing=None):
-    global window_height, window_width
-    global results_menu, main_grid, view_window, scroller_handler, scroller
     results_count, entry, win= data
-    
-    window_width, window_height = (720, 360)
+    UI.win.set_focus(None)
+    UI.window_width, UI.window_height = (720, 360)
     results_count = results_count[0]
     vid_count = 12
     text = entry.get_text()
@@ -216,25 +241,25 @@ def run_search(_, data, existing=None):
 
     stop_all_videos()
 
-    main_grid.remove(view_window)
-    view_window.remove(results_menu)
-    results_menu.destroy()
-    view_window.destroy()
+    UI.main_grid.remove(UI.view_window)
+    UI.view_window.remove(UI.results_menu)
+    UI.results_menu.destroy()
+    UI.view_window.destroy()
 
-    view_window = Gtk.ScrolledWindow()
-    results_menu = Gtk.Grid()
-    results_menu.set_column_homogeneous(True)
-    results_menu.set_column_spacing(10)
-    results_menu.set_row_spacing(10)
+    UI.view_window = Gtk.ScrolledWindow()
+    UI.results_menu = Gtk.Grid()
+    UI.results_menu.set_column_homogeneous(True)
+    UI.results_menu.set_column_spacing(10)
+    UI.results_menu.set_row_spacing(10)
     internal_player_box = Gtk.EventBox()
     internal_player_box.set_margin_top(0)
     internal_player_box.set_margin_bottom(0)
     dummy_box = Gtk.Box()
-    results_menu.add(dummy_box)
-    view_window.add(results_menu)
-    main_grid.attach(view_window, 0, 2, 2, 16)
+    UI.results_menu.add(dummy_box)
+    UI.view_window.add(UI.results_menu)
+    UI.main_grid.attach(UI.view_window, 0, 2, 2, 16)
 
-    x_size = window_width//new_entries_len() - PADDING
+    x_size = UI.window_width//new_entries_len() - PADDING
 
     all_videos_data = parallel(lambda vid: get_video_data(vid, thumbnail_size=x_size), results)
 
@@ -262,7 +287,7 @@ def run_search(_, data, existing=None):
             descBox.set_size_request(x_size, -1)
 
         #preview_box.set_size_request(x_size, -1)
-        callback_data = (vid, main_grid, win)
+        callback_data = (vid, UI.main_grid, win)
 
         dl_vButton = Gtk.Button(label="⬇📽")
         dl_aButton = Gtk.Button(label="⬇🔊")
@@ -273,7 +298,7 @@ def run_search(_, data, existing=None):
         }
         ''')(dl_aButton, dl_vButton)
 
-        video_playback = StreamConnector(dirty_timeout=1)
+        video_playback = StreamConnector(dirty_timeout=1, popout=not CONFIG['prevent_popout'])
 
         gtk_thumbnail.set_size_request(x_size, x_size * 9//16)
         player_box = Gtk.EventBox()
@@ -292,71 +317,75 @@ def run_search(_, data, existing=None):
         ypos = i + 1
         #no closures for this function, take all args from req
         def on_video_play(_, __, req):
-            global scroller_handler, full_time
             video_playback, i, vid, row_elements, video_length = req
             stop_all_videos()
-            full_time = video_length
+            UI.full_time = video_length
             playback_start(vid, video_playback, CONFIG)
             video_player = video_playback.get_display()
             #video_player is None when we only have audio playback
-            if scroller_handler != None:
-                scroller.disconnect(scroller_handler)
-            scroller.set_range(0, video_length)
-            scroller_handler = scroller.connect('change-value', lambda scroller, scrolltype, value, playback: (playback.seek_seconds(value), playback.mark_dirty(), scroller.set_value(value)), video_playback)
-            scroller.show()
-            main_grid.remove_row(1)
-            
+            if UI.scroller_handler != None:
+                UI.scroller.disconnect(UI.scroller_handler)
+            UI.scroller.set_range(0, video_length)
+            UI.scroller_handler = UI.scroller.connect('change-value', lambda scroller, scrolltype, value, playback: (playback.seek_seconds(value), playback.mark_dirty(), scroller.set_value(value)), video_playback)
+            UI.scroller.show()
+            UI.main_grid.remove_row(1)
+
             if video_player:
                 if CONFIG['prevent_popout']:
-                    
-                    main_grid.remove(view_window)
-                    main_grid.attach(internal_player_box, 0, 1, 2, 10)
+                    UI.main_grid.remove(UI.view_window)
+                    UI.main_grid.attach(internal_player_box, 0, 1, 2, 10)
                     internal_player_box.add(video_player)
-                    internal_player_box.connect('button-press-event', lambda box, event: unmoved((event.x,event.y)))
+                    internal_player_box.connect('button-press-event', lambda box, event: UI.unmoved(event))
                     internal_player_box.connect('button-release-event', lambda box, event:
-                        toggle_player_controls() if unmoved((event.x,event.y)) else None)
+                        toggle_player_controls() if UI.unmoved(event) else None)
 
                     video_playback.add_stop_callback(lambda entries, internal_player_box :(
                         internal_player_box.remove(internal_player_box.get_child()),
                         internal_player_box.hide(),
-                        main_grid.remove(internal_player_box),
-                        main_grid.attach(search_entry, 0, 1, 1, 1),
-                        main_grid.attach(search_button, 1, 1, 1, 1),
-                        main_grid.attach(view_window, 0, 2, 2, 10),
-                        main_grid.show_all()
+                        UI.main_grid.remove(internal_player_box),
+                        UI.main_grid.attach(UI.search_entry, 0, 1, 1, 1),
+                        UI.main_grid.attach(UI.search_button, 1, 1, 1, 1),
+                        UI.main_grid.attach(UI.view_window, 0, 2, 2, 10),
+                        UI.main_grid.show_all()
                     ), (row_elements, internal_player_box))
 
                     internal_player_box.show()
+                else:
+                    #audiovideo, popout enabled
+                    UI.init_popout_window(video_player, video_playback)
+                    
 
             #i forget why this is necessary, but it is
-            video_playback.add_stop_callback(StreamConnector.__init__, (video_playback, None, CONFIG['audio_only_mode'], video_playback.dirty_timeout))
+            video_playback.add_stop_callback(StreamConnector.__init__, (video_playback, None, CONFIG['audio_only_mode'], video_playback.dirty_timeout, CONFIG['prevent_popout']))
 
-            video_playback.add_concurrent_callback(lambda scroller, video_playback: scroller.set_value(video_playback.get_current_time()) if video_playback.get_current_time() else None, (scroller, video_playback))
+            video_playback.add_concurrent_callback(
+                lambda scroller, video_playback: scroller.set_value(video_playback.get_current_time()) if video_playback.get_current_time() else None,
+                (UI.scroller, video_playback))
             video_playback.play()
-            running_videos.append((video_playback, video_player, (0, i), internal_player_box))
-            results_menu.show_all()
+            UI.running_videos.append((video_playback, video_player, (0, i), internal_player_box))
+            UI.results_menu.show_all()
 
         preview_box.add(titleLabel)
         preview_box.add(player_box)
         if subtext:
             preview_box.add(descBox)
 
-        player_box.connect('button-press-event', lambda box, event: unmoved((event.x,event.y)))
+        player_box.connect('button-press-event', lambda box, event: UI.unmoved(event))
         player_box.connect('button-release-event', lambda box, event, args:
-                on_video_play(box, event, args) if unmoved((event.x,event.y)) else None,
+                on_video_play(box, event, args) if UI.unmoved(event) else None,
             (video_playback, ypos, vid, new_entries, vid.length))
 
         assert new_entries_len() == len(new_entries)
         for index, entry in enumerate(new_entries):
             entry.set_hexpand(False)
             entry.set_hexpand_set(True)
-            results_menu.attach(entry, index, ypos, 1, 1)
+            UI.results_menu.attach(entry, index, ypos, 1, 1)
             if i==results_count and index==0:
-                results_menu.remove(dummy_box)
-    
-    main_grid.show_all()
-    if scroller_handler==None:
-        scroller.hide()
+                UI.results_menu.remove(dummy_box)
+
+    UI.main_grid.show_all()
+    if UI.scroller_handler==None:
+        UI.scroller.hide()
     internal_player_box.hide()
 
 def on_activate_trap_error(app):
@@ -374,46 +403,44 @@ def load_module_from_dropdown(combobox):
         model = combobox.get_model()
         ident, name = model[tree_iter][:2]
         set_module(name)
-        search_entry.set_text("")
-        run_search(None, ([0], search_entry, win))
+        UI.search_entry.set_text("")
+        run_search(None, ([0], UI.search_entry, win))
 
 def on_activate(app):
-    global window_height, window_width
-    global results_menu, main_grid, view_window, scroller, search_entry, search_button, settings_bar
-    global win
     win = Gtk.Window(application=app)
+    UI.win=win
     win.set_decorated(False)
     win.set_hexpand(False)
     win.set_vexpand(False)
     #pinephone aspect ratio is 1:2
 
-    view_window = Gtk.ScrolledWindow()
-    results_menu = Gtk.Grid()
-    results_menu.set_column_homogeneous(True)
-    results_menu.set_column_spacing(10)
-    results_menu.set_row_spacing(10)
-    view_window.add(results_menu)
+    UI.view_window = Gtk.ScrolledWindow()
+    UI.results_menu = Gtk.Grid()
+    UI.results_menu.set_column_homogeneous(True)
+    UI.results_menu.set_column_spacing(10)
+    UI.results_menu.set_row_spacing(10)
+    UI.view_window.add(UI.results_menu)
     results_count = [0]
 
     horiz = True
-    window_width = 360
-    window_height = 720
+    UI.window_width = 360
+    UI.window_height = 720
     if horiz:
-        window_height, window_width = (window_width, window_height)
-    win.set_default_size(window_width,window_height)
+        UI.window_height, UI.window_width = (UI.window_width, UI.window_height)
+    win.set_default_size(UI.window_width,UI.window_height)
 
     entry = Gtk.Entry()
-    main_grid = Gtk.Grid()
+    UI.main_grid = Gtk.Grid()
     btn2 = Gtk.Button(label="🔍")
     request_data = (results_count, entry, win)
     btn2.connect('clicked', run_search, request_data)
     entry.connect('activate', run_search, request_data)
-    main_grid.set_column_homogeneous(True)
-    main_grid.set_column_spacing(10)
-    main_grid.set_row_spacing(2)
-    main_grid.set_row_homogeneous(True)
-    settings_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-    
+    UI.main_grid.set_column_homogeneous(True)
+    UI.main_grid.set_column_spacing(10)
+    UI.main_grid.set_row_spacing(2)
+    UI.main_grid.set_row_homogeneous(True)
+    UI.settings_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
     def novid_label():
         if CONFIG['audio_only_mode']:
             return "🔊"
@@ -421,23 +448,23 @@ def on_activate(app):
             return "📽+🔊"
     novid_button = Gtk.Button(label = novid_label())
     novid_button.connect('clicked', toggle_config, ('audio_only_mode', lambda _: novid_button.set_label(novid_label())))
-    settings_bar.add(novid_button)
+    UI.settings_bar.add(novid_button)
 
     stop_button = Gtk.Button(label="🛑")
     stop_button.connect('clicked', lambda *stuff: stop_all_videos())
-    settings_bar.add(stop_button)
+    UI.settings_bar.add(stop_button)
 
     toggle_pause_button = Gtk.Button(label="⏯️")
     toggle_pause_button.connect('clicked', lambda *stuff: pause_or_play())
-    settings_bar.add(toggle_pause_button)
+    UI.settings_bar.add(toggle_pause_button)
 
     skip_back_button = Gtk.Button(label="↤")
     skip_back_button.connect('clicked', lambda *stuff: skip(-10))
-    settings_bar.add(skip_back_button)
+    UI.settings_bar.add(skip_back_button)
 
     skip_forward_button = Gtk.Button(label="↦")
     skip_forward_button.connect('clicked', lambda *stuff: skip(10))
-    settings_bar.add(skip_forward_button)
+    UI.settings_bar.add(skip_forward_button)
 
     CSS('''
         * {
@@ -446,16 +473,16 @@ def on_activate(app):
             font-weight: bold;
         }
     ''')(skip_back_button, skip_forward_button)
-    
-    scroller = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 1)
-    scroller.set_draw_value(True)
-    scroller.connect('format-value', lambda scroller, value: time_format(int(value)) + " / " + time_format(full_time))
-    CSS('scale { min-width: ' + str(window_width//3) + 'px; }')(scroller)
-    settings_bar.add(scroller)
+
+    UI.scroller = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 1)
+    UI.scroller.set_draw_value(True)
+    UI.scroller.connect('format-value', lambda scroller, value: time_format(int(value)) + " / " + time_format(UI.full_time))
+    CSS('scale { min-width: ' + str(UI.window_width//3) + 'px; }')(UI.scroller)
+    UI.settings_bar.add(UI.scroller)
 
     reload_button = Gtk.Button(label="⟳")
     reload_button.connect('clicked', lambda *stuff: reload_videos())
-    settings_bar.add(reload_button)
+    UI.settings_bar.add(reload_button)
     CSS('''
         * {
             font-size: 20px;
@@ -476,25 +503,25 @@ def on_activate(app):
     dropdown = Gtk.ComboBox.new_with_model_and_entry(module_store)
     dropdown.connect("changed", load_module_from_dropdown)
     dropdown.set_entry_text_column(1)
-    settings_bar.add(dropdown)
+    UI.settings_bar.add(dropdown)
     #use the last module by default
     set_module(active_module_name)
     dropdown.set_active(active_module)
-    
+
     #no need for dummies in gtk4, but then gstreamer doesn't work
     dummy_box = Gtk.Box()
-    main_grid.add(dummy_box)
-    main_grid.attach(settings_bar, 0, 0, 2, 1)
-    main_grid.remove(dummy_box)
-    search_button = btn2
-    search_entry = entry
-    main_grid.attach(entry, 0, 1, 1, 1)
-    main_grid.attach(btn2, 1, 1, 1, 1)
-    main_grid.attach(view_window, 0, 2, 2, 10)
-    win.add(main_grid)
+    UI.main_grid.add(dummy_box)
+    UI.main_grid.attach(UI.settings_bar, 0, 0, 2, 1)
+    UI.main_grid.remove(dummy_box)
+    UI.search_button = btn2
+    UI.search_entry = entry
+    UI.main_grid.attach(entry, 0, 1, 1, 1)
+    UI.main_grid.attach(btn2, 1, 1, 1, 1)
+    UI.main_grid.attach(UI.view_window, 0, 2, 2, 10)
+    win.add(UI.main_grid)
     win.connect('destroy', lambda *args: (stop_all_videos(), os._exit(0)))
     win.show_all()
-    scroller.hide()
+    UI.scroller.hide()
 
 app = Gtk.Application(application_id='org.gtk.Example')
 app.connect('activate', on_activate_trap_error)

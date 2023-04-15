@@ -6,9 +6,10 @@ from threading import Thread, Lock
 
 CLOCK_TIME_NONE = -1
 class VideoPlayback:
-    def __init__(self, uri=None, audio_only=False, dirty_timeout=3):
+    def __init__(self, uri=None, audio_only=False, dirty_timeout=3, popout=False):
         if not ("lock" in self.__dir__()):
             self.lock = Lock()
+        self.popout = popout
         self.lock.acquire()
         self.uri = uri
         self.concurrent_callbacks = []
@@ -97,7 +98,8 @@ class VideoPlayback:
 
         retval = self.v_sink.get_property("widget")
         self.pipeline.set_state(Gst.State.PLAYING)
-        VideoPlayback._delete_parent_widget(retval)
+        if not self.popout and self.v_sink.get_parent():
+            VideoPlayback._delete_parent_widget(retval)
         self.pipeline.set_state(Gst.State.READY)
         return retval
 
@@ -179,10 +181,10 @@ class VideoPlayback:
         concurrent_callbacks, stop_callbacks = self.concurrent_callbacks, self.stop_callbacks
         succ, cur_time = self.pipeline.query_position(Gst.Format.TIME)
         #end the previous stream
+        old_widget = self.v_sink.get_property("widget")
         self.pipeline.set_state(Gst.State.NULL)
-
         #create a replacement stream
-        self.__init__(uri=self.uri, audio_only=self.audio_only, dirty_timeout=self.dirty_timeout)
+        self.__init__(uri=self.uri, audio_only=self.audio_only, dirty_timeout=self.dirty_timeout, popout=self.popout)
         self.pipeline.set_state(Gst.State.PAUSED)
 
         #reattach callbacks
@@ -194,7 +196,8 @@ class VideoPlayback:
         widget = None
         if not self.audio_only:
             widget = self.v_sink.get_property("widget")
-            VideoPlayback._delete_parent_widget(widget)
+            if not self.popout:
+                VideoPlayback._delete_parent_widget(widget)
 
         #seek to the original position
         self.pipeline.get_state(Gst.CLOCK_TIME_NONE)
