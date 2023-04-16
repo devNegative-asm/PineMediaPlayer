@@ -1,4 +1,4 @@
-import pytube
+
 from PIL import Image
 import gi, sys, os, glob, subprocess
 gi.require_version("Gtk", "3.0")
