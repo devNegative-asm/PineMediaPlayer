@@ -224,8 +224,8 @@ def pause_or_play():
         if parent_window and (not UI.paused) and parent_window != internal_player_box:
             parent_window.deiconify()
             parent_window.maximize()
-            popout_window.fullscreen()
-            popout_window.set_keep_above(True)
+            parent_window.fullscreen()
+            parent_window.set_keep_above(True)
             parent_window.present()
 
 def pause_and_close(window_container, button_event, running_video):
