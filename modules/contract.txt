@@ -26,7 +26,9 @@ playback_start(vid, playback, config):
 save_video(vid, path):
     saves vid to the path
     may be left unimplemented
+    must return a subprocess which implements wait()
 
 save_audio(vid, path):
     saves only the audio portion of vid to the path
     may be left unimplemented
+    must return a subprocess which implements wait()

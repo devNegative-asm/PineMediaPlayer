@@ -12,8 +12,10 @@ import subprocess
 import time
 import traceback
 import importlib
+import argparse
 
 from PIL import Image
+from threading import Lock
 
 StreamConnect = __import__('StreamConnect', globals(), locals(), [], 0)
 VideoPlayback = StreamConnect.VideoPlayback
@@ -63,18 +65,16 @@ def connected(widget, event, callback, data):
 
 def download_audio(_, data):
     vid, main_grid, win = data
-    open_save_window(win, lambda path: save_audio(vid, path), recommended_name=get_video_data(vid, None)[1].replace(" ","_") + '.m4a')
+    open_save_window(win, lambda path: UI.add_saving_proc(save_audio(vid, path)), recommended_name=get_video_data(vid, None)[1].replace(" ","_") + '.m4a')
 
 def download_video(_, data):
     vid, main_grid, win = data
-    open_save_window(win, lambda path: save_video(vid, path), recommended_name=get_video_data(vid, None)[1].replace(" ","_") + '.webm')
+    open_save_window(win, lambda path: UI.add_saving_proc(save_video(vid, path)), recommended_name=get_video_data(vid, None)[1].replace(" ","_") + '.webm')
 
 def CSS(css):
     cssProvider = Gtk.CssProvider()
     cssProvider.load_from_data(css.encode('utf-8'))
     return lambda *widgets: [widget.get_style_context().add_provider(cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION) for widget in widgets]
-
-
 
 #global UI items
 class MainUI:
@@ -95,6 +95,17 @@ class MainUI:
         self.window_width = 720
         self.window_height = 360
         self.paused=False
+        self.saving_subprocs = []
+        self.saving_lock = Lock()
+
+    def add_saving_proc(self, process):
+        self.saving_lock.acquire()
+        self.saving_subprocs.append(process)
+        self.saving_lock.release()
+    
+    def wait_for_saves_to_complete(self):
+        for proc in self.saving_subprocs:
+            proc.wait()
 
     #simple helper to distinguish drags (used on mobile for scrolling) from clicks
     def unmoved(self, event):
@@ -576,9 +587,14 @@ def on_activate(app):
     UI.main_grid.attach(btn2, 1, 1, 1, 1)
     UI.main_grid.attach(UI.view_window, 0, 2, 2, 10)
     win.add(UI.main_grid)
-    win.connect('destroy', lambda *args: (stop_all_videos(), os._exit(0)))
+    win.connect('destroy', lambda *args: (stop_all_videos(),UI.wait_for_saves_to_complete(), os._exit(0)))
     win.show_all()
     UI.scroller.hide()
+
+parser = argparse.ArgumentParser(
+    prog='PinePlayer',
+    description='A GTK-based GUI media player meant to run on the pinephone pro, or similar linux phones.')
+args = parser.parse_args()
 
 app = Gtk.Application(application_id='org.gtk.Example')
 app.connect('activate', on_activate_trap_error)
