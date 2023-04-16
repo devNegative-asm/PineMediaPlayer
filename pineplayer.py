@@ -106,13 +106,18 @@ class MainUI:
     def init_popout_window(self, video_player, video_playback):
         popout_window = video_player.get_parent()
         popout_window.set_decorated(False)
+        popout_window.set_title("PinePlayer PiP")
         popout_window.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK)
         popout_window.connect('button-press-event', lambda win, event: UI.unmoved(event))
-        popout_window.connect('button-release-event', pause_and_close, video_playback)
+        popout_window.connect('button-release-event', on_player_window_clicked, video_playback)
         popout_window.maximize()
         popout_window.fullscreen()
         popout_window.set_keep_above(True)
         popout_window.present()
+
+    def skip(self, delta):
+        for running_video, video_player, position, internal_player_box in self.running_videos:
+            running_video.relative_seek_seconds(delta)
 
 UI = MainUI()
 
@@ -215,6 +220,13 @@ def stop_all_videos():
     UI.search_entry.show()
     UI.scroller_handler = None
 
+def pause_or_play_from_popout():
+    op = (VideoPlayback.pause, VideoPlayback.play)[int(UI.paused)]
+    UI.paused = not UI.paused
+    for running_video, video_player, position, internal_player_box in UI.running_videos:
+        op(running_video)
+        parent_window = video_player.get_parent()
+
 def pause_or_play():
     op = (VideoPlayback.pause, VideoPlayback.play)[int(UI.paused)]
     UI.paused = not UI.paused
@@ -228,17 +240,51 @@ def pause_or_play():
             parent_window.set_keep_above(True)
             parent_window.present()
 
-def pause_and_close(window_container, button_event, running_video):
-    if UI.unmoved(button_event):
-        UI.paused = True
-        running_video.pause()
-        window_container.set_keep_above(False)
-        window_container.iconify()
-        UI.win.present()
+def get_subsegment(container, clickEvent):
+    x,y = clickEvent.x, clickEvent.y
+    wid, hei = container.get_size()
+    px = x/wid
+    py = y/hei
+    return [
+        ['TL','TM','TR'],
+        ['BL','BM','BR']
+    ][(py > 1/2)][(px > 1/3) + (px > 2/3)]
 
-def skip(delta):
-    for running_video, video_player, position, internal_player_box in UI.running_videos:
-        running_video.relative_seek_seconds(delta)
+def on_player_window_clicked(window_container, button_event, running_video):
+    #window split into segments
+
+    # Unfullscreen           hide           Stop
+    #
+    # Back 10 seconds        pause          Forward 10 seconds
+
+    location = get_subsegment(window_container, button_event)
+
+    if UI.unmoved(button_event):
+        match location:
+            case "TM":
+                UI.paused = True
+                running_video.pause()
+                window_container.set_keep_above(False)
+                window_container.iconify()
+                UI.win.present()
+            case "TR":
+                stop_all_videos()
+            case "TL":
+                window_container.unfullscreen()
+                dx, dy = size_setting()
+                window_container.get_child().set_size_request(dx//2, dy//2)
+                window_container.set_size_request(dx//2, dy//2)
+                window_container.set_default_size(dx//2, dy//2)
+                window_container.set_position(Gtk.WindowPosition.CENTER)
+                window_container.set_decorated(not window_container.get_decorated())
+                async_run(lambda: (time.sleep(.1), window_container.unmaximize()))
+            case "BL":
+                UI.skip(-10)
+            case "BR":
+                UI.skip(10)
+            case "BM":
+                pause_or_play_from_popout()
+
 
 def run_search(_, data, existing=None):
     results_count, entry, win= data
@@ -418,6 +464,7 @@ def load_module_from_dropdown(combobox):
 
 def on_activate(app):
     win = Gtk.Window(application=app)
+    win.set_title("PinePlayer")
     UI.win=win
     win.set_decorated(False)
     win.set_hexpand(False)
@@ -469,11 +516,11 @@ def on_activate(app):
     UI.settings_bar.add(toggle_pause_button)
 
     skip_back_button = Gtk.Button(label="↤")
-    skip_back_button.connect('clicked', lambda *stuff: skip(-10))
+    skip_back_button.connect('clicked', lambda *stuff: UI.skip(-10))
     UI.settings_bar.add(skip_back_button)
 
     skip_forward_button = Gtk.Button(label="↦")
-    skip_forward_button.connect('clicked', lambda *stuff: skip(10))
+    skip_forward_button.connect('clicked', lambda *stuff: UI.skip(10))
     UI.settings_bar.add(skip_forward_button)
 
     CSS('''
