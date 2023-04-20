@@ -288,6 +288,7 @@ def on_player_window_clicked(window_container, button_event, running_video):
                 window_container.set_default_size(dx//2, dy//2)
                 window_container.set_position(Gtk.WindowPosition.CENTER)
                 window_container.set_decorated(not window_container.get_decorated())
+                window_container.set_keep_above(True)
                 async_run(lambda: (time.sleep(.1), window_container.unmaximize()))
             case "BL":
                 UI.skip(-10)
@@ -361,7 +362,7 @@ def run_search(_, data, existing=None):
 
         CSS('''
         * {
-            font-size: 60px;
+            font-size: 40px;
         }
         ''')(dl_aButton, dl_vButton)
 
@@ -513,7 +514,7 @@ def on_activate(app):
         if CONFIG['audio_only_mode']:
             return "🔊"
         else:
-            return "📽+🔊"
+            return "📽"
     novid_button = Gtk.Button(label = novid_label())
     novid_button.connect('clicked', toggle_config, ('audio_only_mode', lambda _: novid_button.set_label(novid_label())))
     UI.settings_bar.add(novid_button)
@@ -572,6 +573,16 @@ def on_activate(app):
     dropdown.connect("changed", load_module_from_dropdown)
     dropdown.set_entry_text_column(1)
     UI.settings_bar.add(dropdown)
+    for elem in [reload_button, novid_button, stop_button, toggle_pause_button, skip_back_button, skip_forward_button, UI.scroller, dropdown]:
+        CSS('''
+            * {
+                font-size: 15px;
+                padding-top: 3px;
+                padding-left: 3px;
+                padding-bottom: 3px;
+                padding-right: 3px;
+            }
+        ''')(elem)
     #use the last module by default
     set_module(active_module_name)
     dropdown.set_active(active_module)

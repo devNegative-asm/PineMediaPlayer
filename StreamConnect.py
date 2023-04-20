@@ -55,16 +55,17 @@ class VideoPlayback:
 
         v_convert = None
         if not audio_only:
-            v_convert = make("videoconvert")
-            v_output_queue = make("queue")
-            v_sink = make('gtksink')
+            gl_up = make("glupload")
+            v_convert = make("glcolorconvert")
+            link = gl_up.link(v_convert)
+            if not link:
+                print('Could not link uploader to opengl!\n{0}'.format(link))
+
+            v_sink = make('gtkglsink')
             self.v_sink = v_sink
-            link = v_convert.link(v_output_queue)
+            link = v_convert.link(v_sink)
             if not link:
                 print('Could not link converter & queue!\n{0}'.format(link))
-            link = v_output_queue.link(v_sink)
-            if not link:
-                print('Could not link queue & pulsesink!\n{0}'.format(link))
 
         def on_add_pad(a_convert, v_convert):
             def callback(element, pad):
@@ -76,7 +77,7 @@ class VideoPlayback:
                         pad.link(v_convert.get_static_pad('sink'))
             return callback
         
-        decoder.connect('pad-added', on_add_pad(a_convert, v_convert))
+        decoder.connect('pad-added', on_add_pad(a_convert, gl_up))
         return self.pipeline
 
     def set_uri(self, uri, audio_only=False):
