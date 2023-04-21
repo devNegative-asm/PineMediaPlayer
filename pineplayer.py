@@ -472,7 +472,7 @@ def load_module_from_dropdown(combobox):
         ident, name = model[tree_iter][:2]
         set_module(name)
         UI.search_entry.set_text("")
-        run_search(None, ([0], UI.search_entry, win))
+        run_search(None, ([0], UI.search_entry, UI.win))
 
 def on_activate(app):
     win = Gtk.Window(application=app)
