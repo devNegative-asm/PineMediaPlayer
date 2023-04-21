@@ -1,4 +1,4 @@
-import gi, time
+import gi, time, sys
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gst", "1.0")
 from gi.repository import Gtk, Gst, GLib, Gio
@@ -14,7 +14,7 @@ class VideoPlayback:
         initialized = True
         features = Gst.Registry.get().get_feature_list_by_plugin('v42lcodecs')
         if len(features) == 0:
-            print("warning: no v42l codecs found. Make sure to install gst-plugins-good.")
+            print("warning: no v42l codecs found. Make sure to install gst-plugins-good.", file=sys.stderr)
         for feature in features:
             feature.set_rank(99999999)
 
@@ -65,10 +65,10 @@ class VideoPlayback:
         self.a_sink = a_sink
         link = a_convert.link(a_output_queue)
         if not link:
-            print('Could not link converter & queue!\n{0}'.format(link))
+            print('Could not link converter & queue!\n{0}'.format(link),file=sys.stderr)
         link = a_output_queue.link(a_sink)
         if not link:
-            print('Could not link queue & pulsesink!\n{0}'.format(link))
+            print('Could not link queue & pulsesink!\n{0}'.format(link),file=sys.stderr)
 
         gl_up = None
         if not audio_only:
@@ -76,13 +76,13 @@ class VideoPlayback:
             v_convert = make("glcolorconvert")
             link = gl_up.link(v_convert)
             if not link:
-                print('Could not link uploader to opengl!\n{0}'.format(link))
+                print('Could not link uploader to opengl!\n{0}'.format(link),file=sys.stderr)
 
             v_sink = make('gtkglsink')
             self.v_sink = v_sink
             link = v_convert.link(v_sink)
             if not link:
-                print('Could not link converter & queue!\n{0}'.format(link))
+                print('Could not link converter & queue!\n{0}'.format(link),file=sys.stderr)
 
         def on_add_pad(a_convert, v_convert):
             def callback(element, pad):
@@ -92,7 +92,6 @@ class VideoPlayback:
                 else:
                     if v_convert:
                         pad.link(v_convert.get_static_pad('sink'))
-                element.iterate_elements().foreach(lambda x: (print(x), x.iterate_elements().foreach(lambda x: print("   ",x)) if "bin" in str(type(x)).lower() else None))
             return callback
         
         decoder.connect('pad-added', on_add_pad(a_convert, gl_up))

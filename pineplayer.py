@@ -447,9 +447,9 @@ def on_activate_trap_error(app):
     try:
         return on_activate(app)
     except Exception as e:
-        print("Exception in main activation thread:")
-        print(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
-        print("contact the developers.")
+        print("Exception in main activation thread:",file=sys.stderr)
+        print(''.join(traceback.format_exception(type(e), e, e.__traceback__)),file=sys.stderr)
+        print("contact the developers.",file=sys.stderr)
         os._exit(1)
 
 def load_module_from_dropdown(combobox):
