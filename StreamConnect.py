@@ -40,7 +40,19 @@ class VideoPlayback:
             self.pipeline.add(elem)
             return elem
 
-        decoder = make("uridecodebin3", uri=uri, download=True)
+        decoder = make("uridecodebin", uri=uri, download=True)
+
+        def assign_pads(binn, pad, caps, factories):
+            stuff = [factory.get_element_type() for factory in factories]
+            print(binn)
+            print(pad)
+            print(caps)
+            print(stuff)
+            for i in factories:
+                print(i.get_klass(), i.get_longname())
+            return factories
+
+        decoder.connect('autoplug-sort', assign_pads)
 
         a_convert = make("audioconvert")
         a_output_queue = make("queue")
@@ -75,6 +87,8 @@ class VideoPlayback:
                 else:
                     if v_convert:
                         pad.link(v_convert.get_static_pad('sink'))
+                element.iterate_elements().foreach(lambda x: (print(x), x.iterate_elements().foreach(lambda x: print("   ",x)) if "GstDecodeBin" in str(type(x)) else None))
+                print()
             return callback
         
         decoder.connect('pad-added', on_add_pad(a_convert, gl_up))
