@@ -40,12 +40,7 @@ class VideoPlayback:
             self.pipeline.add(elem)
             return elem
 
-        def on_debug(category, level, path, base, line, source, message, something):
-            print(type(category), type(message))
-            print("gst message: ", category.get_name(), level, source, message.get())
-
-        source = make("urisourcebin", uri=uri)
-        demuxer = make("qtdemux")
+        decoder = make("uridecodebin3", uri=uri, download=True)
 
         a_convert = make("audioconvert")
         a_output_queue = make("queue")
@@ -58,7 +53,7 @@ class VideoPlayback:
         if not link:
             print('Could not link queue & pulsesink!\n{0}'.format(link))
 
-        gl_up = None
+        v_convert = None
         if not audio_only:
             gl_up = make("glupload")
             v_convert = make("glcolorconvert")
@@ -72,35 +67,17 @@ class VideoPlayback:
             if not link:
                 print('Could not link converter & queue!\n{0}'.format(link))
 
-        def on_source_add_pad(demuxer):
-            def callback(element, pad):
-                source = pad.query_caps(None).to_string()
-                sink = demuxer.get_static_pad('sink').query_caps(None).to_string()
-                print(source,'->',sink)
-                link = pad.link(demuxer.get_static_pad('sink'))
-                print('1:',link)
-
-            return callback
-
-        a_parser = make('avdec_aac')
-        v_parser = make('avdec_h264')
-
         def on_add_pad(a_convert, v_convert):
             def callback(element, pad):
                 string = pad.query_caps(None).to_string()
-                print(element, pad, string)
                 if string.startswith('audio'):
-                    print(2,pad.link(a_parser.get_static_pad('sink')))
-                    print(3,a_parser.get_static_pad('src').link(a_convert.get_static_pad('sink')))
+                    pad.link(a_convert.get_static_pad('sink'))
                 else:
                     if v_convert:
-                        print(4,pad.link(v_parser.get_static_pad('sink')))
-                        print(5,v_parser.get_static_pad('src').link(v_convert.get_static_pad('sink')))
+                        pad.link(v_convert.get_static_pad('sink'))
             return callback
         
-        source.connect('pad-added', on_source_add_pad(demuxer))
-        demuxer.connect('pad-added', on_add_pad(a_convert, gl_up))
-        
+        decoder.connect('pad-added', on_add_pad(a_convert, gl_up))
         return self.pipeline
 
     def set_uri(self, uri, audio_only=False):
