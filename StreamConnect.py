@@ -12,9 +12,9 @@ class VideoPlayback:
         if initialized:
             return
         initialized = True
-        features = Gst.Registry.get().get_feature_list_by_plugin('v42lcodecs')
+        features = Gst.Registry.get().get_feature_list_by_plugin('v4l2codecs')
         if len(features) == 0:
-            print("warning: no v42l codecs found. Make sure to install gst-plugins-good.", file=sys.stderr)
+            print("warning: no v4l2 codecs found. Make sure to install gst-plugins-good.", file=sys.stderr)
         for feature in features:
             feature.set_rank(99999999)
 
