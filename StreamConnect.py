@@ -5,8 +5,21 @@ from gi.repository import Gtk, Gst, GLib, Gio
 from threading import Thread, Lock
 
 CLOCK_TIME_NONE = -1
+initialized = False
 class VideoPlayback:
+    def _init_gstreamer():
+        global initialized
+        if initialized:
+            return
+        initialized = True
+        features = Gst.Registry.get().get_feature_list_by_plugin('v42lcodecs')
+        if len(features) == 0:
+            print("warning: no v42l codecs found. Make sure to install the correct plugins.")
+        for feature in features:
+            feature.set_rank(99999999)
+
     def __init__(self, uri=None, audio_only=False, dirty_timeout=3, popout=False):
+        VideoPlayback._init_gstreamer()
         if not ("lock" in self.__dir__()):
             self.lock = Lock()
         self.popout = popout
@@ -40,19 +53,7 @@ class VideoPlayback:
             self.pipeline.add(elem)
             return elem
 
-        decoder = make("uridecodebin", uri=uri, download=True)
-
-        def assign_pads(binn, pad, caps, factories):
-            result = [factory for factory in factories]
-            names = [factory.get_name() for factory in factories]
-            insert = 0
-            for i, name in enumerate(names):
-                if "v4l2" in name.lower():
-                    result[0], result[i] = result[i], result[0]
-                    break
-            return result
-
-        decoder.connect('autoplug-sort', assign_pads)
+        decoder = make("uridecodebin3", uri=uri, download=True)
 
         a_convert = make("audioconvert")
         a_output_queue = make("queue")
@@ -87,8 +88,7 @@ class VideoPlayback:
                 else:
                     if v_convert:
                         pad.link(v_convert.get_static_pad('sink'))
-                element.iterate_elements().foreach(lambda x: (print(x), x.iterate_elements().foreach(lambda x: print("   ",x)) if "GstDecodeBin" in str(type(x)) else None))
-                print()
+                element.iterate_elements().foreach(lambda x: (print(x), x.iterate_elements().foreach(lambda x: print("   ",x)) if "bin" in str(type(x)).lower() else None))
             return callback
         
         decoder.connect('pad-added', on_add_pad(a_convert, gl_up))

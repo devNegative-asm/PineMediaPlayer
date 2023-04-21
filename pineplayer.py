@@ -132,19 +132,6 @@ class MainUI:
 
 UI = MainUI()
 
-def size_daemon():
-    while 1:
-        if UI.win:
-            for running_video, video_player, position, internal_player_box in UI.running_videos:
-                if internal_player_box: pass
-                    #internal_player_box.set_size_request(*size_setting())
-                if video_player: pass
-                    #video_player.set_size_request(*size_setting())
-        if UI.results_menu:
-            UI.results_menu.set_size_request(UI.window_width, -1)
-        time.sleep(1)
-async_run(size_daemon)
-
 def toggle_player_controls():
     UI.player_controls_hidden = not UI.player_controls_hidden
     if UI.player_controls_hidden:
