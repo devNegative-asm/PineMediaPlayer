@@ -53,7 +53,7 @@ class VideoPlayback:
         if not link:
             print('Could not link queue & pulsesink!\n{0}'.format(link))
 
-        v_convert = None
+        gl_up = None
         if not audio_only:
             gl_up = make("glupload")
             v_convert = make("glcolorconvert")
