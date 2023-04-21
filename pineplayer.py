@@ -230,7 +230,7 @@ def pause_or_play():
     UI.paused = not UI.paused
     for running_video, video_player, position, internal_player_box in UI.running_videos:
         op(running_video)
-        parent_window = video_player.get_parent()
+        parent_window = video_player.get_parent() if video_player else None
         if parent_window and (not UI.paused) and parent_window != internal_player_box:
             parent_window.deiconify()
             parent_window.maximize()

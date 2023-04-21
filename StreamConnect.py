@@ -14,7 +14,7 @@ class VideoPlayback:
         initialized = True
         features = Gst.Registry.get().get_feature_list_by_plugin('v42lcodecs')
         if len(features) == 0:
-            print("warning: no v42l codecs found. Make sure to install the correct plugins.")
+            print("warning: no v42l codecs found. Make sure to install gst-plugins-good.")
         for feature in features:
             feature.set_rank(99999999)
 
@@ -53,7 +53,11 @@ class VideoPlayback:
             self.pipeline.add(elem)
             return elem
 
-        decoder = make("uridecodebin3", uri=uri, download=True)
+        if audio_only:
+            decoder = make("uridecodebin3", uri=uri, download=True, **{"async-handling": True})
+        else:
+            #lower cpu usage
+            decoder = make("uridecodebin", uri=uri, download=True, **{"async-handling": True})
 
         a_convert = make("audioconvert")
         a_output_queue = make("queue")
@@ -83,7 +87,7 @@ class VideoPlayback:
         def on_add_pad(a_convert, v_convert):
             def callback(element, pad):
                 string = pad.query_caps(None).to_string()
-                if string.startswith('audio'):
+                if string.startswith("audio/"):
                     pad.link(a_convert.get_static_pad('sink'))
                 else:
                     if v_convert:
