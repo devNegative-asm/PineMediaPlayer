@@ -43,14 +43,14 @@ class VideoPlayback:
         decoder = make("uridecodebin", uri=uri, download=True)
 
         def assign_pads(binn, pad, caps, factories):
-            stuff = [factory.get_element_type() for factory in factories]
-            print(binn)
-            print(pad)
-            print(caps)
-            print(stuff)
-            for i in factories:
-                print(i.get_klass(), i.get_longname())
-            return factories
+            result = [factory for factory in factories]
+            names = [factory.get_name() for factory in factories]
+            insert = 0
+            for i, name in enumerate(names):
+                if "v4l2" in name.lower():
+                    result[0], result[i] = result[i], result[0]
+                    break
+            return result
 
         decoder.connect('autoplug-sort', assign_pads)
 
