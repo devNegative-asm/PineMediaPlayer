@@ -288,7 +288,6 @@ def on_player_window_clicked(window_container, button_event, running_video):
 
 def run_search(_, data, existing=None):
     UI.ui_lock.acquire()
-    print('acquired')
     results_count, entry, win= data
     UI.win.set_focus(None)
     UI.window_width, UI.window_height = (720, 360)
@@ -334,7 +333,6 @@ def run_search(_, data, existing=None):
                 if len(subtext) > subtext_max_length:
                     subtext = subtext[:170] + '[...]'
             UI.ui_lock.acquire()
-            print('acquired')
             i = self.row
             self.row += 1
             def ui_update(*args):
@@ -466,7 +464,6 @@ def run_search(_, data, existing=None):
                 if UI.scroller_handler==None:
                     UI.scroller.hide()
                 internal_player_box.hide()
-                print('releasing')
                 UI.ui_lock.release()
             GLib.idle_add(ui_update)
 
@@ -480,7 +477,6 @@ def run_search(_, data, existing=None):
     if UI.scroller_handler==None:
         UI.scroller.hide()
     internal_player_box.hide()
-    print('releasing')
     UI.ui_lock.release()
 
 def on_activate_trap_error(app):
