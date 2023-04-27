@@ -165,7 +165,7 @@ def size_setting():
 
 def new_entries_len():
     if provide_saving():
-        return 3
+        return 2
     else:
         return 1
 
@@ -314,10 +314,8 @@ def run_search(_, data, existing=None):
     UI.view_window.add(UI.results_menu)
     UI.main_grid.attach(UI.view_window, 0, 2, 2, 16)
 
-    x_size = UI.window_width//new_entries_len() - PADDING
-
+    x_size = UI.window_width//(new_entries_len()) - PADDING
     all_videos_data = parallel(lambda vid: get_video_data(vid, thumbnail_size=x_size), results)
-
     for i in range(results_count, results_count + len(results)):
         vid, title_text, gtk_thumbnail, subtext = all_videos_data[i-results_count]
         preview_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -330,7 +328,7 @@ def run_search(_, data, existing=None):
         titleLabel.set_size_request(x_size, -1)
 
         if subtext:
-            subtext_max_length = 175
+            subtext_max_length = 275
             full_subtext = subtext
             if len(subtext) > subtext_max_length:
                 subtext = subtext[:170] + '[...]'
@@ -346,12 +344,19 @@ def run_search(_, data, existing=None):
 
         dl_vButton = Gtk.Button(label="⬇📽")
         dl_aButton = Gtk.Button(label="⬇🔊")
+        #add_playlist = Gtk.Button(label="+𝅘𝅥𝅮")
+        #add_v_playlist = Gtk.Button(label="+🎞️")
 
         CSS('''
         * {
             font-size: 40px;
         }
-        ''')(dl_aButton, dl_vButton)
+        ''')(
+            dl_aButton,
+            dl_vButton,
+        #    add_playlist,
+        #    add_v_playlist
+        )
 
         video_playback = StreamConnector(dirty_timeout=1, popout=not CONFIG['prevent_popout'])
 
@@ -360,10 +365,15 @@ def run_search(_, data, existing=None):
         player_box.add(gtk_thumbnail)
 
         if provide_saving():
+
+            dl_buttons_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            dl_buttons_box.add(connected(dl_vButton, 'clicked', download_video, callback_data))
+            dl_buttons_box.add(connected(dl_aButton, 'clicked', download_audio, callback_data))
+            #dl_buttons_box.add(add_playlist)
+            #dl_buttons_box.add(add_v_playlist)
             new_entries = [
-                connected(dl_vButton, 'clicked', download_video, callback_data),
                 preview_box,
-                connected(dl_aButton, 'clicked', download_audio, callback_data)
+                dl_buttons_box
             ]
         else:
             new_entries = [
@@ -456,10 +466,11 @@ def load_module_from_dropdown(combobox):
     tree_iter = combobox.get_active_iter()
     if tree_iter is not None:
         model = combobox.get_model()
-        ident, name = model[tree_iter][:2]
-        set_module(name)
-        UI.search_entry.set_text("")
-        run_search(None, ([0], UI.search_entry, UI.win))
+        name = model[tree_iter][0]
+        if CURRENT_MODULE_NAME!=name:
+            set_module(name)
+            UI.search_entry.set_text("")
+            run_search(None, ([0], UI.search_entry, UI.win))
 
 def on_activate(app):
     win = Gtk.Window(application=app)
@@ -547,16 +558,16 @@ def on_activate(app):
         }
     ''')(reload_button)
 
-    module_store = Gtk.ListStore(int, str)
+    dropdown = Gtk.ComboBoxText()
     active_module = 0
     for i, moduleName in enumerate(os.listdir(os.path.join(os.path.dirname(__file__), "modules"))):
         if moduleName.endswith('.py'):
             actual_module_name = os.path.splitext(os.path.basename(moduleName))[0]
-            module_store.append([i+1, actual_module_name])
+            dropdown.append_text(actual_module_name)
             active_module = i
             active_module_name = actual_module_name
 
-    dropdown = Gtk.ComboBox.new_with_model_and_entry(module_store)
+
     dropdown.connect("changed", load_module_from_dropdown)
     dropdown.set_entry_text_column(1)
     UI.settings_bar.add(dropdown)
@@ -572,7 +583,7 @@ def on_activate(app):
         ''')(elem)
     #use the last module by default
     set_module(active_module_name)
-    dropdown.set_active(active_module)
+    dropdown.set_active_id(active_module_name)
 
     #no need for dummies in gtk4, but then gstreamer doesn't work
     dummy_box = Gtk.Box()
@@ -583,7 +594,7 @@ def on_activate(app):
     UI.search_entry = entry
     UI.main_grid.attach(entry, 0, 1, 1, 1)
     UI.main_grid.attach(btn2, 1, 1, 1, 1)
-    UI.main_grid.attach(UI.view_window, 0, 2, 2, 10)
+    UI.main_grid.attach(UI.view_window, 0, 2, 2, 16)
     win.add(UI.main_grid)
     win.connect('destroy', lambda *args: (stop_all_videos(),UI.wait_for_saves_to_complete(), os._exit(0)))
     win.show_all()
