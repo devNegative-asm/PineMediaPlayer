@@ -48,6 +48,9 @@ class FileVideo:
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.length = int(float(vid_len_getter.stdout.decode('utf-8')))
 
+    def get_length(self):
+        return self.length
+
 
 def stream_connector(default):
     return default

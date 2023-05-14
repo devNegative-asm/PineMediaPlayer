@@ -24,8 +24,8 @@ SaveWindow = __import__('SaveWindow', globals(), locals(), [], 0)
 open_save_window = SaveWindow.open_save_window
 
 Util = __import__('Util', globals(), locals(), [], 0)
-parallel, async_run, time_format =(
-    Util.parallel, Util.async_run, Util.time_format)
+async_run, time_format =(
+    Util.async_run, Util.time_format)
 
 PADDING = 6
 
@@ -326,7 +326,6 @@ def run_search(_, data, existing=None):
 
         def add_to_ui(self, i):
             vid, title_text, gtk_thumbnail, subtext = get_video_data(self.results[i - self.row], thumbnail_size=x_size)
-            
             if subtext:
                 subtext_max_length = 275
                 full_subtext = subtext
@@ -395,8 +394,9 @@ def run_search(_, data, existing=None):
                 ypos = i + 1
                 #no closures for this function, take all args from req
                 def on_video_play(_, __, req):
-                    video_playback, i, vid, row_elements, video_length = req
+                    video_playback, i, vid, row_elements = req
                     stop_all_videos()
+                    video_length = vid.get_length()
                     UI.full_time = video_length
                     playback_start(vid, video_playback, CONFIG)
                     video_player = video_playback.get_display()
@@ -451,7 +451,7 @@ def run_search(_, data, existing=None):
                 player_box.connect('button-press-event', lambda box, event: UI.unmoved(event))
                 player_box.connect('button-release-event', lambda box, event, args:
                         on_video_play(box, event, args) if UI.unmoved(event) else None,
-                    (video_playback, ypos, vid, new_entries, vid.length))
+                    (video_playback, ypos, vid, new_entries))
 
                 assert new_entries_len() == len(new_entries)
                 for index, entry in enumerate(new_entries):

@@ -2,7 +2,7 @@ search_videos(query, count):
     query: str|None
     count: int = 1
     runs a query on the video source, returns at most count entries.
-    all entries must have a .length property
+    all entries must have a .get_length method
 
 get_video_data(vid, thumbnail_size):
     vid: a video as returned by search_videos
